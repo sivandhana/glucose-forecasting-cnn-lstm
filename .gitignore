@@ -1,7 +1,14 @@
-data/
-src/cgm_dataset.txt
+# virtual environment
 .venv/
+
+# python cache
 __pycache__/
 *.pyc
+
+# trained artifacts
 *.pkl
 *.h5
+
+# dataset files
+src/cgm_dataset.txt
+data/cgm_dataset.txt
