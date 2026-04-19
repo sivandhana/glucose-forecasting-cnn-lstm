@@ -1,0 +1,7 @@
+data/
+*.txt
+.venv/
+__pycache__/
+*.pyc
+*.pkl
+*.h5
