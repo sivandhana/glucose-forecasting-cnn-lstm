@@ -1,61 +1,124 @@
 import streamlit as st
 import numpy as np
-from tensorflow.keras.models import load_model
 import pickle
-
-st.set_page_config(page_title="Glucose Predictor", layout="centered")
-
-st.title("🧠 Glucose Prediction System")
-st.write("Predict future glucose level using past readings")
+import matplotlib.pyplot as plt
+from tensorflow.keras.models import load_model
 
 # -----------------------------
-# LOAD MODEL + SCALER
+# PAGE CONFIG
 # -----------------------------
-model = load_model("src/model.h5", compile=False)
+st.set_page_config(page_title="Glucose Forecasting System", layout="centered")
 
-with open("src/scaler.pkl", "rb") as f:
+st.title("Glucose Forecasting System")
+st.markdown("Forecast future glucose levels from the most recent 10 readings.")
+
+# -----------------------------
+# LOAD MODEL AND SCALER
+# -----------------------------
+model = load_model("model.h5", compile=False)
+
+with open("scaler.pkl", "rb") as f:
     scaler = pickle.load(f)
-
 
 # -----------------------------
 # USER INPUT
 # -----------------------------
-st.subheader("Enter last 10 glucose readings")
-
+st.subheader("Enter Last 10 Glucose Readings")
 user_input = st.text_input(
-    "Comma separated values",
+    "Comma-separated glucose values (mg/dL)",
     "120,118,115,113,110,108,107,105,104,102"
 )
 
-if st.button("Predict"):
+forecast_steps = st.slider("Select forecast horizon (future steps)", 1, 10, 5)
 
+# -----------------------------
+# FORECAST FUNCTION
+# -----------------------------
+def multi_step_forecast(model, input_values, scaler, steps):
+    """
+    input_values: list of 10 glucose values in original scale
+    steps: number of future values to predict
+    """
+    history = np.array(input_values, dtype=np.float32).reshape(-1, 1)
+
+    # scale the initial history
+    history_scaled = scaler.transform(history).flatten().tolist()
+
+    predictions = []
+
+    for _ in range(steps):
+        current_window = np.array(history_scaled[-10:]).reshape(1, 10, 1)
+
+        pred_scaled = model.predict(current_window, verbose=0)
+        pred_value = scaler.inverse_transform(pred_scaled)[0][0]
+
+        predictions.append(pred_value)
+
+        # append predicted scaled value back into history
+        history_scaled.append(pred_scaled[0][0])
+
+    return predictions
+
+# -----------------------------
+# BUTTON ACTION
+# -----------------------------
+if st.button(" Generate Forecast"):
     try:
-        values = list(map(float, user_input.split(",")))
+        values = [float(x.strip()) for x in user_input.split(",")]
 
         if len(values) != 10:
-            st.error("Please enter exactly 10 values")
+            st.error("Please enter exactly 10 glucose readings.")
         else:
-            arr = np.array(values).reshape(-1,1)
+            predictions = multi_step_forecast(
+                model=model,
+                input_values=values,
+                scaler=scaler,
+                steps=forecast_steps
+            )
 
-            arr = scaler.transform(arr)
+            st.subheader("Forecast Results")
+            st.write(f"**Next predicted glucose value:** {predictions[0]:.2f} mg/dL")
 
-            arr = arr.reshape(1, 10, 1)
+            # risk interpretation for first prediction
+            first_pred = predictions[0]
+            if first_pred < 70:
+                st.warning("⚠️ Risk Alert: Predicted glucose is in hypoglycemic range.")
+            elif first_pred > 180:
+                st.warning("⚠️ Risk Alert: Predicted glucose is in hyperglycemic range.")
+            else:
+                st.success("✅ Predicted glucose is within a normal/acceptable range.")
 
-            prediction = model.predict(arr)
+            # Show forecast table
+            st.subheader("Predicted Future Values")
+            for i, pred in enumerate(predictions, start=1):
+                st.write(f"Step {i}: {pred:.2f} mg/dL")
 
-            prediction = scaler.inverse_transform(prediction)
+            # -----------------------------
+            # PLOT GRAPH
+            # -----------------------------
+            history_x = list(range(1, 11))
+            forecast_x = list(range(10, 10 + forecast_steps + 1))
 
-            st.success(f"Predicted Glucose: {prediction[0][0]:.2f}")
+            plot_values = [values[-1]] + predictions
 
-    except:
-        st.error("Invalid input format")
+            fig, ax = plt.subplots(figsize=(10, 5))
 
-#🔥 IMPORTANT (SAVE MODEL + SCALER)
+            # history
+            ax.plot(history_x, values, marker='o', linewidth=2, label="Past Glucose Readings")
 
-import pickle
+            # forecast
+            ax.plot(forecast_x, plot_values, marker='o', linestyle='--', linewidth=2, label="Forecasted Glucose")
 
-model.save("model.h5")
+            # separator
+            ax.axvline(x=10, color='red', linestyle=':', linewidth=2, label="Forecast Start")
 
-with open("scaler.pkl", "wb") as f:
-    pickle.dump(scaler, f)
+            ax.set_title("Glucose Forecast Graph")
+            ax.set_xlabel("Time Step")
+            ax.set_ylabel("Glucose (mg/dL)")
+            ax.legend()
+            ax.grid(True, linestyle='--', alpha=0.5)
 
+            st.pyplot(fig)
+
+    except ValueError:
+        st.error("Invalid input. Please enter only numbers separated by commas.")

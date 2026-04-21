@@ -61,4 +61,4 @@ plt.title("Example Sliding Window")
 plt.xlabel("Time Step")
 plt.ylabel("Glucose")
 
-plt.show()
+#plt.show()

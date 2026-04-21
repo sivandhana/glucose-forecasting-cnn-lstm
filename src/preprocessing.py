@@ -2,7 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # load dataset
-data = pd.read_csv("cgm_dataset.txt", sep="|")
+data = pd.read_csv("data/cgm_dataset.txt", sep="|")
 
 # display first rows
 print("First 10 rows of dataset:")

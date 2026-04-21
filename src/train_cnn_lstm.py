@@ -10,9 +10,8 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Conv1D, LSTM, Dense, Dropout
 
 
-# -----------------------------
 # 1. LOAD DATA
-# -----------------------------
+
 data = pd.read_csv("cgm_dataset.txt", sep="|")
 
 data["DataDtTm"] = pd.to_datetime(
@@ -22,21 +21,17 @@ data["DataDtTm"] = pd.to_datetime(
 
 data = data.sort_values("DataDtTm")
 
-# 🔻 reduce dataset (important for your laptop)
+# reduce dataset (important for your laptop)
 data = data[:3000]
 
-
-# -----------------------------
 # 2. NORMALIZE
-# -----------------------------
 scaler = MinMaxScaler()
 
 data["CGM"] = scaler.fit_transform(data[["CGM"]])
 
 
-# -----------------------------
 # 3. CREATE SLIDING WINDOWS
-# -----------------------------
+
 def create_windows(series, window):
 
     X = []
@@ -56,24 +51,20 @@ glucose = data["CGM"].values
 X, y = create_windows(glucose, window_size)
 
 
-# -----------------------------
 # 4. RESHAPE FOR CNN-LSTM
-# -----------------------------
+
 X = X.reshape((X.shape[0], X.shape[1], 1))
 
 
-# -----------------------------
 # 5. TRAIN TEST SPLIT
-# -----------------------------
+
 split = int(len(X) * 0.8)
 
 X_train, X_test = X[:split], X[split:]
 y_train, y_test = y[:split], y[split:]
 
-
-# -----------------------------
 # 6. BUILD MODEL (LIGHTWEIGHT)
-# -----------------------------
+
 model = Sequential()
 
 model.add(Conv1D(
@@ -96,10 +87,8 @@ model.compile(
 
 model.summary()
 
-
-# -----------------------------
 # 7. TRAIN MODEL
-# -----------------------------
+
 history = model.fit(
     X_train,
     y_train,
@@ -109,9 +98,8 @@ history = model.fit(
 )
 
 
-# -----------------------------
 # 8. PREDICTION
-# -----------------------------
+
 pred = model.predict(X_test)
 
 # inverse scaling
@@ -119,17 +107,15 @@ pred = scaler.inverse_transform(pred)
 y_test_actual = scaler.inverse_transform(y_test.reshape(-1,1))
 
 
-# -----------------------------
 # 9. RMSE
-# -----------------------------
+
 rmse = np.sqrt(mean_squared_error(y_test_actual, pred))
 
 print("RMSE:", rmse)
 
 
-# -----------------------------
 # 10. PLOT RESULTS
-# -----------------------------
+
 plt.figure(figsize=(10,5))
 
 plt.plot(y_test_actual[:200], label="Actual")
